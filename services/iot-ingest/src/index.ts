@@ -17,6 +17,7 @@ type TrapEvent = {
 const client = mqtt.connect(brokerUrl);
 
 async function persistEvent(evt: TrapEvent): Promise<void> {
+  // Parameters: $1=trapId, $2=eventType, $3=value_numeric, $4=state_text, $5=event_ts
   const sql = `
     insert into trap_event (trap_id, event_type, value_numeric, state_text, event_ts)
     values ($1, $2, $3, $4, coalesce($5::timestamptz, now()));

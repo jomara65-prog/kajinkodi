@@ -1,6 +1,7 @@
 import "dotenv/config";
 import cors from "cors";
 import express from "express";
+import rateLimit from "express-rate-limit";
 import { Pool } from "pg";
 import { z } from "zod";
 
@@ -8,12 +9,22 @@ const app = express();
 const port = Number(process.env.PORT ?? 4000);
 const db = new Pool({ connectionString: process.env.DATABASE_URL });
 
+// Rate limiting: 100 requests per 15 minutes per IP
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 app.use(cors());
 app.use(express.json());
+app.use(limiter);
 
 app.get("/health", async (_req, res) => {
-  const dbStatus = process.env.DATABASE_URL ? "configured" : "missing DATABASE_URL";
-  res.json({ ok: true, service: "api", db: dbStatus });
+  const hasDbUrl = Boolean(process.env.DATABASE_URL);
+  const dbStatus = hasDbUrl ? "configured" : "missing DATABASE_URL";
+  res.json({ ok: hasDbUrl, service: "api", db: dbStatus });
 });
 
 app.get("/leaderboard/monthly", async (_req, res) => {
@@ -27,7 +38,8 @@ app.get("/leaderboard/monthly", async (_req, res) => {
   try {
     const result = await db.query(query);
     res.json({ items: result.rows });
-  } catch {
+  } catch (error) {
+    console.error("leaderboard query failed", error);
     res.status(500).json({ error: "leaderboard query failed" });
   }
 });
@@ -58,7 +70,8 @@ app.post("/logs/catch", async (req, res) => {
   try {
     const result = await db.query(sql, [userId, species, weightKg ?? null, lon, lat, notes ?? null]);
     res.status(201).json({ item: result.rows[0] });
-  } catch {
+  } catch (error) {
+    console.error("catch log insert failed", error);
     res.status(500).json({ error: "failed to store catch log" });
   }
 });
