@@ -58,5 +58,15 @@ async function tick(): Promise<void> {
 }
 
 console.log(`quest-engine running with interval ${intervalMs}ms`);
-void tick();
-setInterval(() => void tick(), intervalMs);
+
+function scheduleNextTick(): void {
+  setTimeout(() => {
+    void tick().finally(() => {
+      scheduleNextTick();
+    });
+  }, intervalMs);
+}
+
+void tick().finally(() => {
+  scheduleNextTick();
+});
